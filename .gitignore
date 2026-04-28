@@ -1,0 +1,6 @@
+coverage.out
+coverage_app.out
+coverage_tmp.out
+*.exe
+bin/
+server.exe
