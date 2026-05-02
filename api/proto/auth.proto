@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package gophkeeper.auth.v1;
+
+option go_package = "github.com/user/gophkeeper/pkg/gen";
+
+// AuthService handles user registration and authentication.
+service AuthService {
+  // Register creates a new user account and returns JWT tokens.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Login authenticates a user and returns JWT tokens.
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // RefreshToken exchanges a valid refresh token for a new token pair.
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+}
+
+// RegisterRequest contains credentials for new user registration.
+message RegisterRequest {
+  string email    = 1;
+  string password = 2;
+}
+
+// RegisterResponse contains JWT tokens for the newly registered user.
+message RegisterResponse {
+  string access_token  = 1;
+  string refresh_token = 2;
+  string user_id       = 3;
+}
+
+// LoginRequest contains credentials for user authentication.
+message LoginRequest {
+  string email    = 1;
+  string password = 2;
+}
+
+// LoginResponse contains JWT tokens for the authenticated user.
+message LoginResponse {
+  string access_token  = 1;
+  string refresh_token = 2;
+  string user_id       = 3;
+}
+
+// RefreshTokenRequest contains the refresh token to exchange.
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+// RefreshTokenResponse contains the new JWT token pair.
+message RefreshTokenResponse {
+  string access_token  = 1;
+  string refresh_token = 2;
+  string user_id       = 3;
+}

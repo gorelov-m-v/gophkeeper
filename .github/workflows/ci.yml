@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      - run: go run ./cmd/staticlint ./...
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      - run: go test ./...
+      - name: meaningful coverage
+        run: |
+          packages=$(go list ./... | grep -v '/pkg/gen$' | grep -v '/cmd/')
+          go test -coverprofile=coverage_app.out $packages
+          go tool cover -func=coverage_app.out
+          total=$(go tool cover -func=coverage_app.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          awk -v total="$total" 'BEGIN { if (total < 75.0) exit 1 }'
+
+  race:
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      - run: go test -race ./...
+
+  build-client:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: gophkeeper-client
+          - os: windows-latest
+            artifact: gophkeeper-client.exe
+          - os: macos-latest
+            artifact: gophkeeper-client
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go mod download
+      - run: mkdir dist
+      - run: go build -trimpath -ldflags "-X github.com/user/gophkeeper/internal/version.Version=ci -X github.com/user/gophkeeper/internal/version.Date=1970-01-01T00:00:00Z -X github.com/user/gophkeeper/internal/version.Commit=${{ github.sha }}" -o dist/${{ matrix.artifact }} ./cmd/client
