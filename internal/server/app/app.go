@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"os/signal"
@@ -19,6 +20,7 @@ import (
 	"github.com/user/gophkeeper/internal/server/service"
 	"github.com/user/gophkeeper/pkg/gen"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -94,14 +96,27 @@ func (a *App) Run() error {
 		return fmt.Errorf("listen: %w", err)
 	}
 
-	go func() {
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
 		<-ctx.Done()
 		a.logger.Info("shutting down gRPC server")
 		a.grpcServer.GracefulStop()
 		a.pool.Close()
 		a.logger.Info("database pool closed")
-	}()
+		return nil
+	})
 
-	a.logger.Info("gRPC server listening", zap.String("address", a.cfg.GRPCAddress), zap.Bool("insecure", a.cfg.AllowInsecureGRPC))
-	return a.grpcServer.Serve(listener)
+	group.Go(func() error {
+		defer stop()
+		a.logger.Info("gRPC server listening", zap.String("address", a.cfg.GRPCAddress), zap.Bool("insecure", a.cfg.AllowInsecureGRPC))
+		if err := a.grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			return err
+		}
+		return nil
+	})
+
+	if err := group.Wait(); err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	return nil
 }

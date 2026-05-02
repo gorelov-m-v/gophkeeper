@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/user/gophkeeper/internal/client/common"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/model"
 	"github.com/user/gophkeeper/internal/client/session"
@@ -235,7 +236,7 @@ func TestAddModelSubmitCreatesAndCachesSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByName() error = %v", err)
 	}
-	envelope, err := decodeEnvelope(record.Payload, sess, enc)
+	envelope, err := common.DecodeEnvelope(record.Payload, sess, enc, tuiLoginHint)
 	if err != nil {
 		t.Fatalf("decodeEnvelope() error = %v", err)
 	}
@@ -566,7 +567,7 @@ func TestListModelMessageBranchesAndView(t *testing.T) {
 
 func TestDetailModelDecryptsEnvelopeMetadata(t *testing.T) {
 	sess, enc := newTestSession(t)
-	payload, err := encodeEnvelope("meta", model.TextData{Content: "hello"}, sess, enc)
+	payload, err := common.EncodeEnvelope("meta", model.TextData{Content: "hello"}, sess, enc, tuiLoginHint)
 	if err != nil {
 		t.Fatalf("encodeEnvelope() error = %v", err)
 	}
@@ -632,7 +633,7 @@ func TestDetailModelDecryptsOtherSecretTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sess, enc := newTestSession(t)
-			payload, err := encodeEnvelope("meta", tt.body, sess, enc)
+			payload, err := common.EncodeEnvelope("meta", tt.body, sess, enc, tuiLoginHint)
 			if err != nil {
 				t.Fatalf("encodeEnvelope() error = %v", err)
 			}

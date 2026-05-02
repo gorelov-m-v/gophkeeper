@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	"github.com/user/gophkeeper/internal/client/grpcclient"
 	"github.com/user/gophkeeper/internal/client/session"
 	"github.com/user/gophkeeper/internal/client/store"
@@ -72,7 +73,7 @@ func newListModel(client grpcclient.GophKeeperClient, cache *store.FileStore, se
 }
 
 func (m listModel) loadSecrets() tea.Msg {
-	userID, err := currentUserID(m.session)
+	userID, err := common.CurrentUserID(m.session, tuiLoginHint)
 	if err != nil {
 		return secretsLoadedMsg{err: err}
 	}
@@ -86,7 +87,7 @@ func (m listModel) loadSecrets() tea.Msg {
 }
 
 func (m listModel) syncSecrets() tea.Msg {
-	userID, err := currentUserID(m.session)
+	userID, err := common.CurrentUserID(m.session, tuiLoginHint)
 	if err != nil {
 		return syncResultMsg{err: err}
 	}
@@ -116,7 +117,7 @@ func (m listModel) syncSecrets() tea.Msg {
 		}
 
 		updated++
-		if err := m.cache.Upsert(userID, secretRecordFromProto(secret)); err != nil {
+		if err := m.cache.Upsert(userID, common.SecretRecordFromProto(secret)); err != nil {
 			return syncResultMsg{err: fmt.Errorf("update local cache: %w", err)}
 		}
 	}
@@ -227,7 +228,7 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 				}
 				m.confirmDelete = false
 				secret := m.secrets[idx]
-				userID, err := currentUserID(m.session)
+				userID, err := common.CurrentUserID(m.session, tuiLoginHint)
 				if err != nil {
 					m.err = err.Error()
 					return m, nil

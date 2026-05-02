@@ -10,7 +10,7 @@ import (
 type LoginData struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	URL      string `json:"url,omitempty"`
+	URL      string `json:"url,omitzero"`
 }
 
 // TextData holds plaintext text content.
@@ -39,7 +39,7 @@ const SecretEnvelopeVersion = 1
 // SecretEnvelope wraps a typed secret body and encrypted metadata.
 type SecretEnvelope struct {
 	Version int             `json:"version"`
-	Meta    string          `json:"meta,omitempty"`
+	Meta    string          `json:"meta,omitzero"`
 	Body    json.RawMessage `json:"body"`
 }
 

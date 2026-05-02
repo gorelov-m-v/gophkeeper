@@ -104,6 +104,23 @@ func TestFileStoreMissingSecretErrors(t *testing.T) {
 	}
 }
 
+func TestFileStoreRejectsUnsafeUserID(t *testing.T) {
+	cache := NewFileStore(t.TempDir())
+	record := testRecord("id-1", "alpha")
+
+	for _, userID := range []string{"", ".", "..", "../escape", `..\escape`, "nested/user"} {
+		if err := cache.Upsert(userID, record); !errors.Is(err, ErrInvalidUserID) {
+			t.Fatalf("Upsert(%q) error = %v, want ErrInvalidUserID", userID, err)
+		}
+		if _, err := cache.List(userID); !errors.Is(err, ErrInvalidUserID) {
+			t.Fatalf("List(%q) error = %v, want ErrInvalidUserID", userID, err)
+		}
+		if err := cache.SaveCursor(userID, time.Now()); !errors.Is(err, ErrInvalidUserID) {
+			t.Fatalf("SaveCursor(%q) error = %v, want ErrInvalidUserID", userID, err)
+		}
+	}
+}
+
 func TestFileStoreSyncCursor(t *testing.T) {
 	cache := NewFileStore(t.TempDir())
 

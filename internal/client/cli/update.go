@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	clientconfig "github.com/user/gophkeeper/internal/client/config"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/grpcclient"
@@ -36,7 +37,7 @@ func newUpdateCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, s
 		Short: "Update an existing secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, err := currentUserID(sess)
+			userID, err := common.CurrentUserID(sess, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -46,7 +47,7 @@ func newUpdateCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, s
 				return err
 			}
 
-			envelope, err := decodeEnvelope(record.Payload, sess, enc)
+			envelope, err := common.DecodeEnvelope(record.Payload, sess, enc, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -88,7 +89,7 @@ func newUpdateCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, s
 				return fmt.Errorf("unknown type: %s", secretType)
 			}
 
-			encrypted, err := encodeEnvelope(metaValue, body, sess, enc)
+			encrypted, err := common.EncodeEnvelope(metaValue, body, sess, enc, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -98,7 +99,7 @@ func newUpdateCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, s
 				return fmt.Errorf("failed to update secret: %w", err)
 			}
 
-			if err := cache.Upsert(userID, secretRecordFromProto(secret)); err != nil {
+			if err := cache.Upsert(userID, common.SecretRecordFromProto(secret)); err != nil {
 				return fmt.Errorf("failed to update local cache: %w", err)
 			}
 

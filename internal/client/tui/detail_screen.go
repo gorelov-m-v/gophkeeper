@@ -1,12 +1,12 @@
 package tui
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/session"
 	"github.com/user/gophkeeper/internal/client/store"
@@ -39,7 +39,7 @@ func (m *detailModel) decryptAndParse(sess *session.Session, enc *crypto.Encrypt
 		{label: "Version", value: fmt.Sprintf("%d", m.secret.Version)},
 	}
 
-	envelope, err := decodeEnvelope(m.secret.Payload, sess, enc)
+	envelope, err := common.DecodeEnvelope(m.secret.Payload, sess, enc, tuiLoginHint)
 	if err != nil {
 		m.err = err.Error()
 		return fields
@@ -51,8 +51,8 @@ func (m *detailModel) decryptAndParse(sess *session.Session, enc *crypto.Encrypt
 
 	switch gen.DataKind(m.secret.Kind) {
 	case gen.DataKind_DATA_KIND_LOGIN:
-		var data LoginData
-		if err := json.Unmarshal(envelope.Body, &data); err != nil {
+		data, err := common.DecodeBody[LoginData](envelope)
+		if err != nil {
 			m.err = fmt.Sprintf("failed to parse login data: %v", err)
 			return fields
 		}
@@ -63,16 +63,16 @@ func (m *detailModel) decryptAndParse(sess *session.Session, enc *crypto.Encrypt
 		)
 
 	case gen.DataKind_DATA_KIND_TEXT:
-		var data TextData
-		if err := json.Unmarshal(envelope.Body, &data); err != nil {
+		data, err := common.DecodeBody[TextData](envelope)
+		if err != nil {
 			m.err = fmt.Sprintf("failed to parse text data: %v", err)
 			return fields
 		}
 		fields = append(fields, fieldPair{label: "Content", value: data.Content})
 
 	case gen.DataKind_DATA_KIND_BINARY:
-		var data BinaryData
-		if err := json.Unmarshal(envelope.Body, &data); err != nil {
+		data, err := common.DecodeBody[BinaryData](envelope)
+		if err != nil {
 			m.err = fmt.Sprintf("failed to parse binary data: %v", err)
 			return fields
 		}
@@ -82,8 +82,8 @@ func (m *detailModel) decryptAndParse(sess *session.Session, enc *crypto.Encrypt
 		)
 
 	case gen.DataKind_DATA_KIND_CARD:
-		var data CardData
-		if err := json.Unmarshal(envelope.Body, &data); err != nil {
+		data, err := common.DecodeBody[CardData](envelope)
+		if err != nil {
 			m.err = fmt.Sprintf("failed to parse card data: %v", err)
 			return fields
 		}

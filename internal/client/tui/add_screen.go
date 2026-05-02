@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/grpcclient"
 	"github.com/user/gophkeeper/internal/client/model"
@@ -120,7 +121,7 @@ func (m addModel) Update(msg tea.Msg) (addModel, tea.Cmd) {
 }
 
 func (m *addModel) submit(client grpcclient.GophKeeperClient, cache store.SecretStore, sess *session.Session, enc *crypto.Encryptor) error {
-	userID, err := currentUserID(sess)
+	userID, err := common.CurrentUserID(sess, tuiLoginHint)
 	if err != nil {
 		return err
 	}
@@ -171,7 +172,7 @@ func (m *addModel) submit(client grpcclient.GophKeeperClient, cache store.Secret
 		return fmt.Errorf("unknown type: %s", typeName)
 	}
 
-	encrypted, err := encodeEnvelope(meta, body, sess, enc)
+	encrypted, err := common.EncodeEnvelope(meta, body, sess, enc, tuiLoginHint)
 	if err != nil {
 		return err
 	}
@@ -184,7 +185,7 @@ func (m *addModel) submit(client grpcclient.GophKeeperClient, cache store.Secret
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
 
-	if err := cache.Upsert(userID, secretRecordFromProto(secret)); err != nil {
+	if err := cache.Upsert(userID, common.SecretRecordFromProto(secret)); err != nil {
 		return fmt.Errorf("failed to update local cache: %w", err)
 	}
 

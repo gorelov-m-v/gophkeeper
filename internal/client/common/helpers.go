@@ -1,9 +1,11 @@
-package cli
+// Package common provides shared helpers for client interfaces.
+package common
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/user/gophkeeper/internal/client/crypto"
@@ -13,15 +15,17 @@ import (
 	"github.com/user/gophkeeper/pkg/gen"
 )
 
-func currentUserID(sess *session.Session) (string, error) {
+// CurrentUserID returns the authenticated user ID from session state.
+func CurrentUserID(sess *session.Session, loginHint string) (string, error) {
 	userID := sess.UserID()
 	if userID == "" {
-		return "", fmt.Errorf("user session is missing, please run 'gophkeeper login' first")
+		return "", fmt.Errorf("user session is missing, %s", loginHint)
 	}
 	return userID, nil
 }
 
-func secretRecordFromProto(secret *gen.SecretItem) store.SecretRecord {
+// SecretRecordFromProto converts a wire secret item into a local cache record.
+func SecretRecordFromProto(secret *gen.SecretItem) store.SecretRecord {
 	return store.SecretRecord{
 		ID:      secret.GetId(),
 		Name:    secret.GetName(),
@@ -44,9 +48,10 @@ func secretRecordFromProto(secret *gen.SecretItem) store.SecretRecord {
 	}
 }
 
-func decodeEnvelope(ciphertext []byte, sess *session.Session, enc *crypto.Encryptor) (*model.SecretEnvelope, error) {
+// DecodeEnvelope decrypts and parses an encrypted secret payload.
+func DecodeEnvelope(ciphertext []byte, sess *session.Session, enc *crypto.Encryptor, loginHint string) (*model.SecretEnvelope, error) {
 	if len(sess.EncryptionKey()) == 0 {
-		return nil, fmt.Errorf("master password not set, please run 'gophkeeper login' first")
+		return nil, fmt.Errorf("master password not set, %s", loginHint)
 	}
 
 	plaintext, err := enc.Decrypt(sess.EncryptionKey(), ciphertext)
@@ -62,9 +67,10 @@ func decodeEnvelope(ciphertext []byte, sess *session.Session, enc *crypto.Encryp
 	return envelope, nil
 }
 
-func encodeEnvelope(meta string, body any, sess *session.Session, enc *crypto.Encryptor) ([]byte, error) {
+// EncodeEnvelope builds, serializes, and encrypts a secret envelope.
+func EncodeEnvelope(meta string, body any, sess *session.Session, enc *crypto.Encryptor, loginHint string) ([]byte, error) {
 	if len(sess.EncryptionKey()) == 0 {
-		return nil, fmt.Errorf("master password not set, please run 'gophkeeper login' first")
+		return nil, fmt.Errorf("master password not set, %s", loginHint)
 	}
 
 	plaintext, err := model.NewSecretEnvelope(meta, body)
@@ -80,13 +86,15 @@ func encodeEnvelope(meta string, body any, sess *session.Session, enc *crypto.En
 	return ciphertext, nil
 }
 
-func sortSecretsByName(secrets []store.SecretRecord) {
-	sort.Slice(secrets, func(i, j int) bool {
-		return secrets[i].Name < secrets[j].Name
+// SortSecretsByName sorts secret records by display name.
+func SortSecretsByName(secrets []store.SecretRecord) {
+	slices.SortFunc(secrets, func(left, right store.SecretRecord) int {
+		return cmp.Compare(left.Name, right.Name)
 	})
 }
 
-func decodeBody[T any](envelope *model.SecretEnvelope) (*T, error) {
+// DecodeBody decodes a typed secret body from an envelope.
+func DecodeBody[T any](envelope *model.SecretEnvelope) (*T, error) {
 	var body T
 	if err := json.Unmarshal(envelope.Body, &body); err != nil {
 		return nil, err

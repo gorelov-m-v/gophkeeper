@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -214,7 +215,7 @@ func boolEnvOrDefault(key string, fallback bool) bool {
 		return fallback
 	}
 
-	parsed, err := strconvParseBool(value)
+	parsed, err := strconv.ParseBool(value)
 	if err != nil {
 		return fallback
 	}
@@ -229,15 +230,4 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func strconvParseBool(value string) (bool, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1", "t", "true", "yes", "y":
-		return true, nil
-	case "0", "f", "false", "no", "n":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean %q", value)
-	}
 }

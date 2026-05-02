@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	clientconfig "github.com/user/gophkeeper/internal/client/config"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/session"
@@ -19,7 +20,7 @@ func newListCmd(cache store.SecretStore, sess *session.Session, _ *crypto.Encryp
 		Use:   "list",
 		Short: "List locally cached secrets",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, err := currentUserID(sess)
+			userID, err := common.CurrentUserID(sess, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -45,7 +46,7 @@ func newListCmd(cache store.SecretStore, sess *session.Session, _ *crypto.Encryp
 				}
 			}
 
-			sortSecretsByName(secrets)
+			common.SortSecretsByName(secrets)
 
 			fmt.Printf("%-30s %-15s %-25s\n", "NAME", "TYPE", "UPDATED")
 			for _, secret := range secrets {

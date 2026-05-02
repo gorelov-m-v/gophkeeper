@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	clientconfig "github.com/user/gophkeeper/internal/client/config"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/grpcclient"
@@ -36,7 +37,7 @@ func newAddCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, sess
 		Use:   "add",
 		Short: "Add a new secret",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, err := currentUserID(sess)
+			userID, err := common.CurrentUserID(sess, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -73,7 +74,7 @@ func newAddCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, sess
 				return fmt.Errorf("unknown type: %s", secretType)
 			}
 
-			encrypted, err := encodeEnvelope(meta, body, sess, enc)
+			encrypted, err := common.EncodeEnvelope(meta, body, sess, enc, cliLoginHint)
 			if err != nil {
 				return err
 			}
@@ -83,7 +84,7 @@ func newAddCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, sess
 				return fmt.Errorf("failed to create secret: %w", err)
 			}
 
-			if err := cache.Upsert(userID, secretRecordFromProto(secret)); err != nil {
+			if err := cache.Upsert(userID, common.SecretRecordFromProto(secret)); err != nil {
 				return fmt.Errorf("failed to update local cache: %w", err)
 			}
 

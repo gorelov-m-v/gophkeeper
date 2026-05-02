@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	clientconfig "github.com/user/gophkeeper/internal/client/config"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/model"
@@ -192,7 +193,7 @@ func TestAddCmdCreatesEncryptedSecretAndCachesIt(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	envelope, err := decodeEnvelope(capturedPayload, sess, enc)
+	envelope, err := common.DecodeEnvelope(capturedPayload, sess, enc, cliLoginHint)
 	if err != nil {
 		t.Fatalf("decodeEnvelope() error = %v", err)
 	}
@@ -214,7 +215,7 @@ func TestGetCmdReadsSecretFromLocalCache(t *testing.T) {
 	sess, enc := newTestSession(t)
 	cache := newCache(t, cfg)
 
-	payload, err := encodeEnvelope("meta", model.TextData{Content: "hello"}, sess, enc)
+	payload, err := common.EncodeEnvelope("meta", model.TextData{Content: "hello"}, sess, enc, cliLoginHint)
 	if err != nil {
 		t.Fatalf("encodeEnvelope() error = %v", err)
 	}
@@ -269,7 +270,7 @@ func TestGetCmdReadsAllSecretTypesFromLocalCache(t *testing.T) {
 			sess, enc := newTestSession(t)
 			cache := newCache(t, cfg)
 
-			payload, err := encodeEnvelope("meta", tt.body, sess, enc)
+			payload, err := common.EncodeEnvelope("meta", tt.body, sess, enc, cliLoginHint)
 			if err != nil {
 				t.Fatalf("encodeEnvelope() error = %v", err)
 			}
@@ -307,7 +308,7 @@ func TestGetCmdRequiresCacheAndEncryptionKey(t *testing.T) {
 		t.Fatalf("Execute(empty cache) error = %v, want ErrCacheNotInitialized", err)
 	}
 
-	payload, err := encodeEnvelope("meta", model.TextData{Content: "hello"}, newSessionWithKey(t), enc)
+	payload, err := common.EncodeEnvelope("meta", model.TextData{Content: "hello"}, newSessionWithKey(t), enc, cliLoginHint)
 	if err != nil {
 		t.Fatalf("encodeEnvelope() error = %v", err)
 	}
@@ -334,7 +335,7 @@ func TestUpdateCmdUpdatesServerAndLocalCache(t *testing.T) {
 	sess, enc := newTestSession(t)
 	cache := newCache(t, cfg)
 
-	initialPayload, err := encodeEnvelope("old-meta", model.TextData{Content: "before"}, sess, enc)
+	initialPayload, err := common.EncodeEnvelope("old-meta", model.TextData{Content: "before"}, sess, enc, cliLoginHint)
 	if err != nil {
 		t.Fatalf("encodeEnvelope() error = %v", err)
 	}
@@ -380,7 +381,7 @@ func TestUpdateCmdUpdatesServerAndLocalCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByName() error = %v", err)
 	}
-	envelope, err := decodeEnvelope(record.Payload, sess, enc)
+	envelope, err := common.DecodeEnvelope(record.Payload, sess, enc, cliLoginHint)
 	if err != nil {
 		t.Fatalf("decodeEnvelope() error = %v", err)
 	}
@@ -642,17 +643,17 @@ func TestLoginCmdReturnsClientError(t *testing.T) {
 
 func TestCurrentUserIDAndEnvelopeErrorBranches(t *testing.T) {
 	sess := session.NewSession()
-	if _, err := currentUserID(sess); err == nil || !strings.Contains(err.Error(), "missing") {
+	if _, err := common.CurrentUserID(sess, cliLoginHint); err == nil || !strings.Contains(err.Error(), "missing") {
 		t.Fatalf("currentUserID(empty) error = %v, want missing session", err)
 	}
 
 	enc := crypto.NewEncryptor()
-	if _, err := encodeEnvelope("meta", model.TextData{Content: "x"}, sess, enc); err == nil {
+	if _, err := common.EncodeEnvelope("meta", model.TextData{Content: "x"}, sess, enc, cliLoginHint); err == nil {
 		t.Fatal("encodeEnvelope(no key) error = nil, want error")
 	}
 
 	sess.SetEncryptionKey([]byte("short"))
-	if _, err := decodeEnvelope([]byte("bad payload"), sess, enc); err == nil {
+	if _, err := common.DecodeEnvelope([]byte("bad payload"), sess, enc, cliLoginHint); err == nil {
 		t.Fatal("decodeEnvelope(invalid key/payload) error = nil, want error")
 	}
 }

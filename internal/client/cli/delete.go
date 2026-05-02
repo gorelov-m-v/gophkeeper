@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/user/gophkeeper/internal/client/common"
 	clientconfig "github.com/user/gophkeeper/internal/client/config"
 	"github.com/user/gophkeeper/internal/client/crypto"
 	"github.com/user/gophkeeper/internal/client/grpcclient"
@@ -20,7 +21,7 @@ func newDeleteCmd(client grpcclient.GophKeeperClient, cache store.SecretStore, s
 		Short: "Delete a secret by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, err := currentUserID(sess)
+			userID, err := common.CurrentUserID(sess, cliLoginHint)
 			if err != nil {
 				return err
 			}

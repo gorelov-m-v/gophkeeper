@@ -88,15 +88,7 @@ func (r *SecretRepo) List(ctx context.Context, userID uuid.UUID) ([]*SecretRow, 
 	}
 	defer rows.Close()
 
-	var secrets []*SecretRow
-	for rows.Next() {
-		var secret SecretRow
-		if err := rows.Scan(&secret.ID, &secret.UserID, &secret.Name, &secret.Kind, &secret.Payload, &secret.Version, &secret.Deleted, &secret.CreatedAt, &secret.UpdatedAt); err != nil {
-			return nil, err
-		}
-		secrets = append(secrets, &secret)
-	}
-	return secrets, rows.Err()
+	return scanSecretRows(rows)
 }
 
 // Update modifies a secret with optimistic locking and returns the updated row.
@@ -148,6 +140,10 @@ func (r *SecretRepo) ListModifiedSince(ctx context.Context, userID uuid.UUID, si
 	}
 	defer rows.Close()
 
+	return scanSecretRows(rows)
+}
+
+func scanSecretRows(rows pgx.Rows) ([]*SecretRow, error) {
 	var secrets []*SecretRow
 	for rows.Next() {
 		var secret SecretRow

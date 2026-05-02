@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,6 +17,8 @@ var (
 	ErrCacheNotInitialized = errors.New("local cache is empty, run 'gophkeeper sync'")
 	// ErrSecretNotFound indicates that the secret does not exist in the local cache.
 	ErrSecretNotFound = errors.New("secret not found in local cache")
+	// ErrInvalidUserID indicates that a user ID cannot be used as a cache path component.
+	ErrInvalidUserID = errors.New("invalid user id")
 )
 
 // SecretRecord is the persisted local representation of a secret.
@@ -154,7 +157,18 @@ func (s *FileStore) LoadCursor(userID string) (time.Time, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, err := os.ReadFile(s.syncPath(userID))
+	root, err := s.openRootLocked()
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer root.Close()
+
+	syncPath, err := s.syncPath(userID)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	data, err := root.ReadFile(syncPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return time.Time{}, nil
@@ -175,7 +189,17 @@ func (s *FileStore) SaveCursor(userID string, cursor time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := os.MkdirAll(s.userDir(userID), 0700); err != nil {
+	root, err := s.openRootLocked()
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	userDir, err := s.userDir(userID)
+	if err != nil {
+		return err
+	}
+	if err := root.MkdirAll(userDir, 0700); err != nil {
 		return fmt.Errorf("create user cache dir: %w", err)
 	}
 
@@ -184,7 +208,11 @@ func (s *FileStore) SaveCursor(userID string, cursor time.Time) error {
 		return fmt.Errorf("marshal sync state: %w", err)
 	}
 
-	if err := os.WriteFile(s.syncPath(userID), data, 0600); err != nil {
+	syncPath, err := s.syncPath(userID)
+	if err != nil {
+		return err
+	}
+	if err := root.WriteFile(syncPath, data, 0600); err != nil {
 		return fmt.Errorf("write sync state: %w", err)
 	}
 
@@ -192,7 +220,18 @@ func (s *FileStore) SaveCursor(userID string, cursor time.Time) error {
 }
 
 func (s *FileStore) loadCacheLocked(userID string, create bool) (*cacheFile, error) {
-	data, err := os.ReadFile(s.cachePath(userID))
+	root, err := s.openRootLocked()
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+
+	cachePath, err := s.cachePath(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := root.ReadFile(cachePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if !create {
@@ -217,7 +256,17 @@ func (s *FileStore) loadCacheLocked(userID string, create bool) (*cacheFile, err
 }
 
 func (s *FileStore) saveCacheLocked(userID string, cache *cacheFile) error {
-	if err := os.MkdirAll(s.userDir(userID), 0700); err != nil {
+	root, err := s.openRootLocked()
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	userDir, err := s.userDir(userID)
+	if err != nil {
+		return err
+	}
+	if err := root.MkdirAll(userDir, 0700); err != nil {
 		return fmt.Errorf("create user cache dir: %w", err)
 	}
 
@@ -226,21 +275,59 @@ func (s *FileStore) saveCacheLocked(userID string, cache *cacheFile) error {
 		return fmt.Errorf("marshal cache: %w", err)
 	}
 
-	if err := os.WriteFile(s.cachePath(userID), data, 0600); err != nil {
+	cachePath, err := s.cachePath(userID)
+	if err != nil {
+		return err
+	}
+	if err := root.WriteFile(cachePath, data, 0600); err != nil {
 		return fmt.Errorf("write cache: %w", err)
 	}
 
 	return nil
 }
 
-func (s *FileStore) userDir(userID string) string {
-	return filepath.Join(s.root, "cache", userID)
+func (s *FileStore) openRootLocked() (*os.Root, error) {
+	if err := os.MkdirAll(s.root, 0700); err != nil {
+		return nil, fmt.Errorf("create cache root: %w", err)
+	}
+
+	root, err := os.OpenRoot(s.root)
+	if err != nil {
+		return nil, fmt.Errorf("open cache root: %w", err)
+	}
+	return root, nil
 }
 
-func (s *FileStore) cachePath(userID string) string {
-	return filepath.Join(s.userDir(userID), "secrets.json")
+func (s *FileStore) userDir(userID string) (string, error) {
+	if err := validateUserID(userID); err != nil {
+		return "", err
+	}
+	return filepath.Join("cache", userID), nil
 }
 
-func (s *FileStore) syncPath(userID string) string {
-	return filepath.Join(s.userDir(userID), "sync.json")
+func (s *FileStore) cachePath(userID string) (string, error) {
+	userDir, err := s.userDir(userID)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(userDir, "secrets.json"), nil
+}
+
+func (s *FileStore) syncPath(userID string) (string, error) {
+	userDir, err := s.userDir(userID)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(userDir, "sync.json"), nil
+}
+
+func validateUserID(userID string) error {
+	cleaned := filepath.Clean(userID)
+	if userID == "" || userID == "." || userID == ".." || cleaned != userID {
+		return ErrInvalidUserID
+	}
+	if filepath.IsAbs(userID) || strings.ContainsAny(userID, `/\`) {
+		return ErrInvalidUserID
+	}
+	return nil
 }
